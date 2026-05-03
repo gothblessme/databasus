@@ -398,8 +398,78 @@ jobs:
 
           echo "Cleanup complete"
 
-  build-and-push-dev:
+  build-dev-image:
     runs-on: self-hosted
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+    steps:
+      - name: Clean workspace
+        run: |
+          sudo rm -rf "$GITHUB_WORKSPACE"/* || true
+          sudo rm -rf "$GITHUB_WORKSPACE"/.* || true
+
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (enables multi-arch emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build amd64 dev image and load locally
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          platforms: linux/amd64
+          cache-to: type=gha,mode=max,scope=dev-build
+          cache-from: type=gha,scope=dev-build
+          build-args: |
+            APP_VERSION=dev-${{ github.sha }}
+          tags: |
+            databasus-dev:smoke-${{ github.sha }}
+
+      - name: Run smoke pings against dev image
+        run: |
+          mkdir -p /tmp/databasus-dev-smoke-data
+          docker run -d --name databasus-dev-smoke \
+            -p 4005:4005 \
+            -v /tmp/databasus-dev-smoke-data:/databasus-data \
+            databasus-dev:smoke-${{ github.sha }}
+
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:4005/system/health || true)
+            if [ "$code" = "200" ]; then
+              echo "healthcheck OK after ${i} attempt(s)"
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "healthcheck never returned 200 (last code: ${code})"
+              docker logs databasus-dev-smoke
+              exit 1
+            fi
+            sleep 2
+          done
+
+          body=$(curl -sf http://localhost:4005/)
+          if ! echo "$body" | grep -q 'id="root"'; then
+            echo "index.html did not contain React root div"
+            echo "$body"
+            exit 1
+          fi
+          echo "index.html OK"
+
+      - name: Cleanup smoke container
+        if: always()
+        run: |
+          docker rm -f databasus-dev-smoke || true
+          docker rmi databasus-dev:smoke-${{ github.sha }} || true
+          rm -rf /tmp/databasus-dev-smoke-data || true
+
+  push-dev-image:
+    runs-on: self-hosted
+    needs: [build-dev-image]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
     steps:
       - name: Clean workspace
@@ -428,11 +498,82 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
+          cache-from: type=gha,scope=dev-build
           build-args: |
             APP_VERSION=dev-${{ github.sha }}
           tags: |
             databasus/databasus-dev:latest
             databasus/databasus-dev:${{ github.sha }}
+
+  build-image:
+    if: github.ref != 'refs/heads/develop'
+    runs-on: self-hosted
+    needs: [lint-backend, lint-frontend, lint-agent]
+    steps:
+      - name: Clean workspace
+        run: |
+          sudo rm -rf "$GITHUB_WORKSPACE"/* || true
+          sudo rm -rf "$GITHUB_WORKSPACE"/.* || true
+
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (enables multi-arch emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build amd64 image and load locally
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          platforms: linux/amd64
+          cache-to: type=gha,mode=max,scope=release-build
+          cache-from: type=gha,scope=release-build
+          build-args: |
+            APP_VERSION=ci-${{ github.sha }}
+          tags: |
+            databasus:smoke-${{ github.sha }}
+
+      - name: Run smoke pings against built image
+        run: |
+          mkdir -p /tmp/databasus-smoke-data
+          docker run -d --name databasus-smoke \
+            -p 4005:4005 \
+            -v /tmp/databasus-smoke-data:/databasus-data \
+            databasus:smoke-${{ github.sha }}
+
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:4005/system/health || true)
+            if [ "$code" = "200" ]; then
+              echo "healthcheck OK after ${i} attempt(s)"
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "healthcheck never returned 200 (last code: ${code})"
+              docker logs databasus-smoke
+              exit 1
+            fi
+            sleep 2
+          done
+
+          body=$(curl -sf http://localhost:4005/)
+          if ! echo "$body" | grep -q 'id="root"'; then
+            echo "index.html did not contain React root div"
+            echo "$body"
+            exit 1
+          fi
+          echo "index.html OK"
+
+      - name: Cleanup smoke container
+        if: always()
+        run: |
+          docker rm -f databasus-smoke || true
+          docker rmi databasus:smoke-${{ github.sha }} || true
+          rm -rf /tmp/databasus-smoke-data || true
 
   determine-version:
     runs-on: self-hosted
@@ -529,9 +670,9 @@ jobs:
             echo "No version bump needed"
           fi
 
-  build-and-push:
+  push-image:
     runs-on: self-hosted
-    needs: [determine-version]
+    needs: [determine-version, build-image]
     if: ${{ needs.determine-version.outputs.should_release == 'true' }}
     permissions:
       contents: write
@@ -562,6 +703,7 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
+          cache-from: type=gha,scope=release-build
           build-args: |
             APP_VERSION=${{ needs.determine-version.outputs.new_version }}
           tags: |
@@ -573,7 +715,7 @@ jobs:
     runs-on: self-hosted
     container:
       image: node:20
-    needs: [determine-version, build-and-push]
+    needs: [determine-version, push-image]
     if: ${{ needs.determine-version.outputs.should_release == 'true' }}
     permissions:
       contents: write
@@ -694,7 +836,7 @@ jobs:
       image: alpine:3.19
       volumes:
         - /runner-cache/apk-cache:/etc/apk/cache
-    needs: [determine-version, build-and-push]
+    needs: [determine-version, push-image]
     if: ${{ needs.determine-version.outputs.should_release == 'true' }}
     permissions:
       contents: read

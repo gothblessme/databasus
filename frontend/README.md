@@ -2,13 +2,7 @@
 
 ## Setup
 
-This project uses [pnpm](https://pnpm.io/) (pinned via `packageManager` in `package.json`). Enable [Corepack](https://nodejs.org/api/corepack.html) once and the correct version is provisioned automatically:
-
-```bash
-corepack enable
-```
-
-Then install dependencies:
+Install dependencies:
 
 ```bash
 pnpm install
