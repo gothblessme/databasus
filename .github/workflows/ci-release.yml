@@ -423,7 +423,7 @@ jobs:
           push: false
           load: true
           platforms: linux/amd64
-          cache-to: type=gha,mode=max,scope=dev-build
+          cache-to: type=gha,mode=min,scope=dev-build
           cache-from: type=gha,scope=dev-build
           build-args: |
             APP_VERSION=dev-${{ github.sha }}

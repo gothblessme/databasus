@@ -116,52 +116,42 @@ ENV CONTAINER_ARCH=$TARGETARCH
 # Set production mode for Docker containers
 ENV ENV_MODE=production
 
-# ========= STEP 1: Install base packages =========
-RUN apt-get update
-RUN apt-get install -y --no-install-recommends \
-  wget ca-certificates gnupg lsb-release sudo gosu curl unzip xz-utils libncurses5 libncurses6
-RUN rm -rf /var/lib/apt/lists/*
+# ========= Install all apt packages in a single layer =========
+# Combines base packages + PostgreSQL 17 (pgdg repo) + Valkey (greensec repo) + rclone
+# into one RUN to minimise layer count and cache-export overhead.
+# Valkey is only accessible internally (localhost) — not exposed outside container.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      wget ca-certificates gnupg lsb-release sudo gosu curl unzip xz-utils \
+      libncurses5 libncurses6 rclone; \
+    wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -; \
+    echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+      > /etc/apt/sources.list.d/pgdg.list; \
+    wget -O /usr/share/keyrings/greensec.github.io-valkey-debian.key \
+      https://greensec.github.io/valkey-debian/public.key; \
+    echo "deb [signed-by=/usr/share/keyrings/greensec.github.io-valkey-debian.key] https://greensec.github.io/valkey-debian/repo $(lsb_release -cs) main" \
+      > /etc/apt/sources.list.d/valkey-debian.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends postgresql-17 valkey; \
+    rm -rf /var/lib/apt/lists/*
 
 # ========= Pre-built DB client binaries (PG, MySQL, MariaDB, MongoDB) =========
 # All client tools live under /app/assets/tools/<arch>/ — the backend resolves
-# them at runtime via runtime.GOARCH. We copy only the tree matching $TARGETARCH.
+# them at runtime via runtime.GOARCH. Use a bind mount so only the tree matching
+# $TARGETARCH ends up in an image layer (the unused arch never materialises).
 ARG TARGETARCH
-COPY assets/tools/x64/ /tmp/tools-x64/
-COPY assets/tools/arm/ /tmp/tools-arm/
-RUN mkdir -p /app/assets/tools && \
-  if [ "$TARGETARCH" = "amd64" ]; then \
-    mv /tmp/tools-x64 /app/assets/tools/x64; \
-  elif [ "$TARGETARCH" = "arm64" ]; then \
-    mv /tmp/tools-arm /app/assets/tools/arm; \
-  fi && \
-  rm -rf /tmp/tools-x64 /tmp/tools-arm && \
-  chmod +x /app/assets/tools/*/postgresql/*/bin/* \
-           /app/assets/tools/*/mysql/*/bin/* \
-           /app/assets/tools/*/mariadb/*/bin/* \
-           /app/assets/tools/*/mongodb/bin/*
-
-# Install PostgreSQL 17 server (needed for the internal database — not for
-# clients, those come from assets above).
-RUN wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
-  echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
-  > /etc/apt/sources.list.d/pgdg.list && \
-  apt-get update && \
-  apt-get install -y --no-install-recommends postgresql-17 && \
-  rm -rf /var/lib/apt/lists/*
-
-# Install Valkey server from debian repository
-# Valkey is only accessible internally (localhost) - not exposed outside container
-RUN wget -O /usr/share/keyrings/greensec.github.io-valkey-debian.key https://greensec.github.io/valkey-debian/public.key && \
-  echo "deb [signed-by=/usr/share/keyrings/greensec.github.io-valkey-debian.key] https://greensec.github.io/valkey-debian/repo $(lsb_release -cs) main" \
-  > /etc/apt/sources.list.d/valkey-debian.list && \
-  apt-get update && \
-  apt-get install -y --no-install-recommends valkey && \
-  rm -rf /var/lib/apt/lists/*
-
-# ========= Install rclone =========
-RUN apt-get update && \
-  apt-get install -y --no-install-recommends rclone && \
-  rm -rf /var/lib/apt/lists/*
+RUN --mount=type=bind,source=assets/tools,target=/ctx/tools,readonly \
+    mkdir -p /app/assets/tools && \
+    if [ "$TARGETARCH" = "amd64" ]; then \
+      cp -r /ctx/tools/x64 /app/assets/tools/x64; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+      cp -r /ctx/tools/arm /app/assets/tools/arm; \
+    fi && \
+    chmod +x /app/assets/tools/*/postgresql/*/bin/* \
+             /app/assets/tools/*/mysql/*/bin/* \
+             /app/assets/tools/*/mariadb/*/bin/* \
+             /app/assets/tools/*/mongodb/bin/*
 
 # Create postgres user and set up directories
 RUN groupadd -g 999 postgres || true && \
@@ -190,11 +180,14 @@ COPY frontend/cloud-root-content.html /app/cloud-root-content.html
 # at GET /api/v1/system/agent?arch=amd64|arm64
 COPY --from=agent-build /agent-binaries ./agent-binaries
 
-# Copy .env file (with fallback to .env.production.example)
-COPY backend/.env* /app/
-RUN if [ ! -f /app/.env ]; then \
-  if [ -f /app/.env.production.example ]; then \
-  cp /app/.env.production.example /app/.env; \
+# Copy .env file to / (with fallback to .env.production.example).
+# The backend resolves .env relative to the parent of its working directory:
+# in dev, cwd is backend/ and .env sits at the repo root (parent of backend/).
+# In production, WORKDIR is /app, so .env must live at / to match.
+COPY backend/.env* /
+RUN if [ ! -f /.env ]; then \
+  if [ -f /.env.production.example ]; then \
+  cp /.env.production.example /.env; \
   fi; \
   fi
 

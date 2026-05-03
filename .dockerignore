@@ -60,8 +60,10 @@ LICENSE
 CITATION.cff
 *.md
 
-# Assets - exclude SVGs but keep tools
+# Assets - exclude SVGs and Windows-only tool binaries (used only for native Windows dev,
+# never copied into the Docker image — see Dockerfile)
 assets/*.svg
+assets/tools/win-x64
 
 # Python cache
 **/__pycache__
