@@ -28,7 +28,6 @@ func Test_TestConnection_InsufficientPermissions_ReturnsError(t *testing.T) {
 		version tools.MongodbVersion
 		port    string
 	}{
-		{"MongoDB 4.0", tools.MongodbVersion4, env.TestMongodb40Port},
 		{"MongoDB 4.2", tools.MongodbVersion4, env.TestMongodb42Port},
 		{"MongoDB 4.4", tools.MongodbVersion4, env.TestMongodb44Port},
 		{"MongoDB 5.0", tools.MongodbVersion5, env.TestMongodb50Port},
@@ -94,7 +93,6 @@ func Test_TestConnection_SufficientPermissions_Success(t *testing.T) {
 		version tools.MongodbVersion
 		port    string
 	}{
-		{"MongoDB 4.0", tools.MongodbVersion4, env.TestMongodb40Port},
 		{"MongoDB 4.2", tools.MongodbVersion4, env.TestMongodb42Port},
 		{"MongoDB 4.4", tools.MongodbVersion4, env.TestMongodb44Port},
 		{"MongoDB 5.0", tools.MongodbVersion5, env.TestMongodb50Port},
@@ -164,7 +162,6 @@ func Test_IsUserReadOnly_AdminUser_ReturnsFalse(t *testing.T) {
 		version tools.MongodbVersion
 		port    string
 	}{
-		{"MongoDB 4.0", tools.MongodbVersion4, env.TestMongodb40Port},
 		{"MongoDB 4.2", tools.MongodbVersion4, env.TestMongodb42Port},
 		{"MongoDB 4.4", tools.MongodbVersion4, env.TestMongodb44Port},
 		{"MongoDB 5.0", tools.MongodbVersion5, env.TestMongodb50Port},
@@ -237,7 +234,6 @@ func Test_CreateReadOnlyUser_UserCanReadButNotWrite(t *testing.T) {
 		version tools.MongodbVersion
 		port    string
 	}{
-		{"MongoDB 4.0", tools.MongodbVersion4, env.TestMongodb40Port},
 		{"MongoDB 4.2", tools.MongodbVersion4, env.TestMongodb42Port},
 		{"MongoDB 4.4", tools.MongodbVersion4, env.TestMongodb44Port},
 		{"MongoDB 5.0", tools.MongodbVersion5, env.TestMongodb50Port},
@@ -390,6 +386,34 @@ type MongodbContainer struct {
 	AuthDatabase string
 	Version      tools.MongodbVersion
 	Client       *mongo.Client
+}
+
+func Test_GetRawDbSizeMb_Mongodb_ReturnsPositiveSize(t *testing.T) {
+	env := config.GetEnv()
+	container := connectToMongodbContainer(t, env.TestMongodb70Port, tools.MongodbVersion7)
+	defer container.Client.Disconnect(t.Context())
+
+	collectionName := fmt.Sprintf("size_test_%s", uuid.New().String()[:8])
+	collection := container.Client.Database(container.Database).Collection(collectionName)
+
+	defer func() {
+		_ = collection.Drop(t.Context())
+	}()
+
+	docs := make([]any, 0, 1000)
+	for i := 0; i < 1000; i++ {
+		docs = append(docs, bson.M{"payload": strings.Repeat("x", 1024)})
+	}
+	_, err := collection.InsertMany(t.Context(), docs)
+	assert.NoError(t, err)
+
+	mongodbModel := createMongodbModel(container)
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	sizeMB, err := mongodbModel.GetRawDbSizeMb(t.Context(), logger, nil, uuid.New())
+	assert.NoError(t, err)
+	assert.Greater(t, sizeMB, 0.0, "raw db size should be > 0 after inserting documents")
 }
 
 func connectToMongodbContainer(

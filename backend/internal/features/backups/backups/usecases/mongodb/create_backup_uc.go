@@ -72,17 +72,22 @@ func (uc *CreateMongodbBackupUsecase) Execute(
 		return nil, fmt.Errorf("failed to decrypt database password: %w", err)
 	}
 
+	rawSizeMB, err := mdb.GetRawDbSizeMb(ctx, uc.logger, uc.fieldEncryptor, db.ID)
+	if err != nil {
+		uc.logger.Warn("failed to fetch raw db size before backup",
+			"database_id", db.ID,
+			"error", err)
+	} else {
+		backup.BackupRawDbSizeMb = rawSizeMB
+	}
+
 	args := uc.buildMongodumpArgs(mdb, decryptedPassword)
 
 	return uc.streamToStorage(
 		ctx,
 		backup,
 		backupConfig,
-		tools.GetMongodbExecutable(
-			tools.MongodbExecutableMongodump,
-			config.GetEnv().EnvMode,
-			config.GetEnv().MongodbInstallDir,
-		),
+		tools.GetMongodbExecutable(tools.MongodbExecutableMongodump),
 		args,
 		storage,
 		backupProgressListener,

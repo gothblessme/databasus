@@ -78,18 +78,22 @@ func (uc *CreateMariadbBackupUsecase) Execute(
 		return nil, fmt.Errorf("failed to decrypt database password: %w", err)
 	}
 
+	rawSizeMB, err := mdb.GetRawDbSizeMb(ctx, uc.logger, uc.fieldEncryptor, db.ID)
+	if err != nil {
+		uc.logger.Warn("failed to fetch raw db size before backup",
+			"database_id", db.ID,
+			"error", err)
+	} else {
+		backup.BackupRawDbSizeMb = rawSizeMB
+	}
+
 	args := uc.buildMariadbDumpArgs(mdb)
 
 	return uc.streamToStorage(
 		ctx,
 		backup,
 		backupConfig,
-		tools.GetMariadbExecutable(
-			tools.MariadbExecutableMariadbDump,
-			mdb.Version,
-			config.GetEnv().EnvMode,
-			config.GetEnv().MariadbInstallDir,
-		),
+		tools.GetMariadbExecutable(mdb.Version, tools.MariadbExecutableMariadbDump),
 		args,
 		decryptedPassword,
 		storage,

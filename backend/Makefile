@@ -1,20 +1,27 @@
+-include ../.env
+
 run:
 	go run cmd/main.go
 
 test:
+	go run ./cmd/cleanup_test_db
+	goose -dir ./migrations postgres "$(GOOSE_TEST_DBSTRING)" up
 	go test -p=1 -count=1 -failfast -timeout 15m ./internal/...
 
 lint:
 	golangci-lint fmt ./cmd/... ./internal/... && golangci-lint run ./cmd/... ./internal/...
 
 migration-create:
-	goose create $(name) sql
+	goose -dir ./migrations create $(name) sql
 
 migration-up:
-	goose up
+	goose -dir ./migrations postgres "$(GOOSE_DBSTRING)" up
+
+migration-up-test:
+	goose -dir ./migrations postgres "$(GOOSE_TEST_DBSTRING)" up
 
 migration-down:
-	goose down
+	goose -dir ./migrations postgres "$(GOOSE_DBSTRING)" down
 
 swagger:
 	swag init -g ./cmd/main.go -o swagger
