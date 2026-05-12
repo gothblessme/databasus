@@ -73,12 +73,12 @@ func (uc *CreateMysqlBackupUsecase) Execute(
 		return nil, fmt.Errorf("database name is required for mysqldump backups")
 	}
 
-	decryptedPassword, err := uc.fieldEncryptor.Decrypt(db.ID, my.Password)
+	decryptedPassword, err := uc.fieldEncryptor.Decrypt(my.Password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt database password: %w", err)
 	}
 
-	rawSizeMB, err := my.GetRawDbSizeMb(ctx, uc.logger, uc.fieldEncryptor, db.ID)
+	rawSizeMB, err := my.GetRawDbSizeMb(ctx, uc.logger, uc.fieldEncryptor)
 	if err != nil {
 		uc.logger.Warn("failed to fetch raw db size before backup",
 			"database_id", db.ID,

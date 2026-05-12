@@ -67,12 +67,12 @@ func (uc *CreateMongodbBackupUsecase) Execute(
 		return nil, fmt.Errorf("database name is required for mongodump backups")
 	}
 
-	decryptedPassword, err := uc.fieldEncryptor.Decrypt(db.ID, mdb.Password)
+	decryptedPassword, err := uc.fieldEncryptor.Decrypt(mdb.Password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt database password: %w", err)
 	}
 
-	rawSizeMB, err := mdb.GetRawDbSizeMb(ctx, uc.logger, uc.fieldEncryptor, db.ID)
+	rawSizeMB, err := mdb.GetRawDbSizeMb(ctx, uc.logger, uc.fieldEncryptor)
 	if err != nil {
 		uc.logger.Warn("failed to fetch raw db size before backup",
 			"database_id", db.ID,

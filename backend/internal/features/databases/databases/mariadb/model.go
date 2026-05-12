@@ -81,7 +81,6 @@ func (m *MariadbDatabase) Validate() error {
 func (m *MariadbDatabase) TestConnection(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -90,7 +89,7 @@ func (m *MariadbDatabase) TestConnection(
 		return errors.New("database name is required for MariaDB backup")
 	}
 
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -138,13 +137,12 @@ func (m *MariadbDatabase) GetRawDbSizeMb(
 	ctx context.Context,
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) (float64, error) {
 	if m.Database == nil || *m.Database == "" {
 		return 0, nil
 	}
 
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return 0, fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -203,11 +201,10 @@ func (m *MariadbDatabase) Update(incoming *MariadbDatabase) {
 }
 
 func (m *MariadbDatabase) EncryptSensitiveFields(
-	databaseID uuid.UUID,
 	encryptor encryption.FieldEncryptor,
 ) error {
 	if m.Password != "" {
-		encrypted, err := encryptor.Encrypt(databaseID, m.Password)
+		encrypted, err := encryptor.Encrypt(m.Password)
 		if err != nil {
 			return err
 		}
@@ -219,7 +216,6 @@ func (m *MariadbDatabase) EncryptSensitiveFields(
 func (m *MariadbDatabase) PopulateDbData(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) error {
 	if m.Database == nil || *m.Database == "" {
 		return nil
@@ -228,7 +224,7 @@ func (m *MariadbDatabase) PopulateDbData(
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -263,7 +259,6 @@ func (m *MariadbDatabase) PopulateDbData(
 func (m *MariadbDatabase) PopulateVersion(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) error {
 	if m.Database == nil || *m.Database == "" {
 		return nil
@@ -272,7 +267,7 @@ func (m *MariadbDatabase) PopulateVersion(
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -302,9 +297,8 @@ func (m *MariadbDatabase) IsUserReadOnly(
 	ctx context.Context,
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) (bool, []string, error) {
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -367,9 +361,8 @@ func (m *MariadbDatabase) CreateReadOnlyUser(
 	ctx context.Context,
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) (string, string, error) {
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -675,10 +668,9 @@ func checkBackupPermissions(privileges string) error {
 func decryptPasswordIfNeeded(
 	password string,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) (string, error) {
 	if encryptor == nil {
 		return password, nil
 	}
-	return encryptor.Decrypt(databaseID, password)
+	return encryptor.Decrypt(password)
 }

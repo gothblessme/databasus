@@ -81,7 +81,6 @@ func (m *MysqlDatabase) Validate() error {
 func (m *MysqlDatabase) TestConnection(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -90,7 +89,7 @@ func (m *MysqlDatabase) TestConnection(
 		return errors.New("database name is required for MySQL backup")
 	}
 
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -139,13 +138,12 @@ func (m *MysqlDatabase) GetRawDbSizeMb(
 	ctx context.Context,
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) (float64, error) {
 	if m.Database == nil || *m.Database == "" {
 		return 0, nil
 	}
 
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return 0, fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -204,11 +202,10 @@ func (m *MysqlDatabase) Update(incoming *MysqlDatabase) {
 }
 
 func (m *MysqlDatabase) EncryptSensitiveFields(
-	databaseID uuid.UUID,
 	encryptor encryption.FieldEncryptor,
 ) error {
 	if m.Password != "" {
-		encrypted, err := encryptor.Encrypt(databaseID, m.Password)
+		encrypted, err := encryptor.Encrypt(m.Password)
 		if err != nil {
 			return err
 		}
@@ -220,7 +217,6 @@ func (m *MysqlDatabase) EncryptSensitiveFields(
 func (m *MysqlDatabase) PopulateDbData(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) error {
 	if m.Database == nil || *m.Database == "" {
 		return nil
@@ -229,7 +225,7 @@ func (m *MysqlDatabase) PopulateDbData(
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -265,7 +261,6 @@ func (m *MysqlDatabase) PopulateDbData(
 func (m *MysqlDatabase) PopulateVersion(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) error {
 	if m.Database == nil || *m.Database == "" {
 		return nil
@@ -274,7 +269,7 @@ func (m *MysqlDatabase) PopulateVersion(
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -305,9 +300,8 @@ func (m *MysqlDatabase) IsUserReadOnly(
 	ctx context.Context,
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) (bool, []string, error) {
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -371,9 +365,8 @@ func (m *MysqlDatabase) CreateReadOnlyUser(
 	ctx context.Context,
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) (string, string, error) {
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -668,10 +661,9 @@ func detectZstdSupport(ctx context.Context, db *sql.DB) bool {
 func decryptPasswordIfNeeded(
 	password string,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) (string, error) {
 	if encryptor == nil {
 		return password, nil
 	}
-	return encryptor.Decrypt(databaseID, password)
+	return encryptor.Decrypt(password)
 }

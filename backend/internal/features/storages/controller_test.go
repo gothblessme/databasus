@@ -1169,11 +1169,11 @@ func Test_StorageSensitiveDataLifecycle_AllTypes(t *testing.T) {
 					"S3SecretKey should be encrypted with 'enc:' prefix")
 
 				encryptor := encryption.GetFieldEncryptor()
-				accessKey, err := encryptor.Decrypt(storage.ID, storage.S3Storage.S3AccessKey)
+				accessKey, err := encryptor.Decrypt(storage.S3Storage.S3AccessKey)
 				assert.NoError(t, err)
 				assert.Equal(t, "original-access-key", accessKey)
 
-				secretKey, err := encryptor.Decrypt(storage.ID, storage.S3Storage.S3SecretKey)
+				secretKey, err := encryptor.Decrypt(storage.S3Storage.S3SecretKey)
 				assert.NoError(t, err)
 				assert.Equal(t, "original-secret-key", secretKey)
 			},
@@ -1250,7 +1250,7 @@ func Test_StorageSensitiveDataLifecycle_AllTypes(t *testing.T) {
 					"Password should be encrypted with 'enc:' prefix")
 
 				encryptor := encryption.GetFieldEncryptor()
-				password, err := encryptor.Decrypt(storage.ID, storage.NASStorage.Password)
+				password, err := encryptor.Decrypt(storage.NASStorage.Password)
 				assert.NoError(t, err)
 				assert.Equal(t, "original-password", password)
 			},
@@ -1295,10 +1295,7 @@ func Test_StorageSensitiveDataLifecycle_AllTypes(t *testing.T) {
 					"ConnectionString should be encrypted with 'enc:' prefix")
 
 				encryptor := encryption.GetFieldEncryptor()
-				connectionString, err := encryptor.Decrypt(
-					storage.ID,
-					storage.AzureBlobStorage.ConnectionString,
-				)
+				connectionString, err := encryptor.Decrypt(storage.AzureBlobStorage.ConnectionString)
 				assert.NoError(t, err)
 				assert.Equal(t, "original-connection-string", connectionString)
 			},
@@ -1346,10 +1343,7 @@ func Test_StorageSensitiveDataLifecycle_AllTypes(t *testing.T) {
 					"AccountKey should be encrypted with 'enc:' prefix")
 
 				encryptor := encryption.GetFieldEncryptor()
-				accountKey, err := encryptor.Decrypt(
-					storage.ID,
-					storage.AzureBlobStorage.AccountKey,
-				)
+				accountKey, err := encryptor.Decrypt(storage.AzureBlobStorage.AccountKey)
 				assert.NoError(t, err)
 				assert.Equal(t, "original-account-key", accountKey)
 			},
@@ -1397,7 +1391,7 @@ func Test_StorageSensitiveDataLifecycle_AllTypes(t *testing.T) {
 					"Password should be encrypted with 'enc:' prefix")
 
 				encryptor := encryption.GetFieldEncryptor()
-				password, err := encryptor.Decrypt(storage.ID, storage.FTPStorage.Password)
+				password, err := encryptor.Decrypt(storage.FTPStorage.Password)
 				assert.NoError(t, err)
 				assert.Equal(t, "original-password", password)
 			},
@@ -1448,11 +1442,11 @@ func Test_StorageSensitiveDataLifecycle_AllTypes(t *testing.T) {
 					"PrivateKey should be encrypted with 'enc:' prefix")
 
 				encryptor := encryption.GetFieldEncryptor()
-				password, err := encryptor.Decrypt(storage.ID, storage.SFTPStorage.Password)
+				password, err := encryptor.Decrypt(storage.SFTPStorage.Password)
 				assert.NoError(t, err)
 				assert.Equal(t, "original-password", password)
 
-				privateKey, err := encryptor.Decrypt(storage.ID, storage.SFTPStorage.PrivateKey)
+				privateKey, err := encryptor.Decrypt(storage.SFTPStorage.PrivateKey)
 				assert.NoError(t, err)
 				assert.Equal(t, "original-private-key", privateKey)
 			},
@@ -1492,10 +1486,7 @@ func Test_StorageSensitiveDataLifecycle_AllTypes(t *testing.T) {
 					"ConfigContent should be encrypted with 'enc:' prefix")
 
 				encryptor := encryption.GetFieldEncryptor()
-				configContent, err := encryptor.Decrypt(
-					storage.ID,
-					storage.RcloneStorage.ConfigContent,
-				)
+				configContent, err := encryptor.Decrypt(storage.RcloneStorage.ConfigContent)
 				assert.NoError(t, err)
 				assert.Equal(
 					t,

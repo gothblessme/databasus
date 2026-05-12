@@ -173,7 +173,7 @@ func (uc *RestorePostgresqlBackupUsecase) restoreViaStdin(
 
 	// Create temporary .pgpass file for authentication
 	fieldEncryptor := util_encryption.GetFieldEncryptor()
-	decryptedPassword, err := fieldEncryptor.Decrypt(originalDB.ID, pg.Password)
+	decryptedPassword, err := fieldEncryptor.Decrypt(pg.Password)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt password: %w", err)
 	}

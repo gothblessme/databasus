@@ -94,12 +94,11 @@ func (m *MongodbDatabase) Validate() error {
 func (m *MongodbDatabase) TestConnection(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -146,13 +145,12 @@ func (m *MongodbDatabase) GetRawDbSizeMb(
 	ctx context.Context,
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) (float64, error) {
 	if m.Database == "" {
 		return 0, nil
 	}
 
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return 0, fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -209,11 +207,10 @@ func (m *MongodbDatabase) Update(incoming *MongodbDatabase) {
 }
 
 func (m *MongodbDatabase) EncryptSensitiveFields(
-	databaseID uuid.UUID,
 	encryptor encryption.FieldEncryptor,
 ) error {
 	if m.Password != "" {
-		encrypted, err := encryptor.Encrypt(databaseID, m.Password)
+		encrypted, err := encryptor.Encrypt(m.Password)
 		if err != nil {
 			return err
 		}
@@ -225,20 +222,18 @@ func (m *MongodbDatabase) EncryptSensitiveFields(
 func (m *MongodbDatabase) PopulateDbData(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) error {
-	return m.PopulateVersion(logger, encryptor, databaseID)
+	return m.PopulateVersion(logger, encryptor)
 }
 
 func (m *MongodbDatabase) PopulateVersion(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -269,9 +264,8 @@ func (m *MongodbDatabase) IsUserReadOnly(
 	ctx context.Context,
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) (bool, []string, error) {
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -456,9 +450,8 @@ func (m *MongodbDatabase) CreateReadOnlyUser(
 	ctx context.Context,
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) (string, string, error) {
-	password, err := decryptPasswordIfNeeded(m.Password, encryptor, databaseID)
+	password, err := decryptPasswordIfNeeded(m.Password, encryptor)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to decrypt password: %w", err)
 	}
@@ -774,10 +767,9 @@ func checkBackupPermissions(
 func decryptPasswordIfNeeded(
 	password string,
 	encryptor encryption.FieldEncryptor,
-	databaseID uuid.UUID,
 ) (string, error) {
 	if encryptor == nil {
 		return password, nil
 	}
-	return encryptor.Decrypt(databaseID, password)
+	return encryptor.Decrypt(password)
 }

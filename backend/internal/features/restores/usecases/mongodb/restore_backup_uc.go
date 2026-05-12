@@ -64,7 +64,7 @@ func (uc *RestoreMongodbBackupUsecase) Execute(
 	}
 
 	fieldEncryptor := util_encryption.GetFieldEncryptor()
-	decryptedPassword, err := fieldEncryptor.Decrypt(restoringToDB.ID, mdb.Password)
+	decryptedPassword, err := fieldEncryptor.Decrypt(mdb.Password)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt password: %w", err)
 	}

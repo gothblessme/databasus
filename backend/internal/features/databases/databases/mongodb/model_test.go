@@ -79,7 +79,7 @@ func Test_TestConnection_InsufficientPermissions_ReturnsError(t *testing.T) {
 
 			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-			err = mongodbModel.TestConnection(logger, nil, uuid.New())
+			err = mongodbModel.TestConnection(logger, nil)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "insufficient permissions")
 		})
@@ -149,7 +149,7 @@ func Test_TestConnection_SufficientPermissions_Success(t *testing.T) {
 
 			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-			err = mongodbModel.TestConnection(logger, nil, uuid.New())
+			err = mongodbModel.TestConnection(logger, nil)
 			assert.NoError(t, err)
 		})
 	}
@@ -181,7 +181,7 @@ func Test_IsUserReadOnly_AdminUser_ReturnsFalse(t *testing.T) {
 			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 			ctx := t.Context()
 
-			isReadOnly, roles, err := mongodbModel.IsUserReadOnly(ctx, logger, nil, uuid.New())
+			isReadOnly, roles, err := mongodbModel.IsUserReadOnly(ctx, logger, nil)
 			assert.NoError(t, err)
 			assert.False(t, isReadOnly, "Root user should not be read-only")
 			assert.NotEmpty(t, roles, "Root user should have roles")
@@ -204,7 +204,7 @@ func Test_IsUserReadOnly_ReadOnlyUser_ReturnsTrue(t *testing.T) {
 	mongodbModel := createMongodbModel(container)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	username, password, err := mongodbModel.CreateReadOnlyUser(ctx, logger, nil, uuid.New())
+	username, password, err := mongodbModel.CreateReadOnlyUser(ctx, logger, nil)
 	assert.NoError(t, err)
 
 	readOnlyModel := &MongodbDatabase{
@@ -219,7 +219,7 @@ func Test_IsUserReadOnly_ReadOnlyUser_ReturnsTrue(t *testing.T) {
 		CpuCount:     1,
 	}
 
-	isReadOnly, roles, err := readOnlyModel.IsUserReadOnly(ctx, logger, nil, uuid.New())
+	isReadOnly, roles, err := readOnlyModel.IsUserReadOnly(ctx, logger, nil)
 	assert.NoError(t, err)
 	assert.True(t, isReadOnly, "Read-only user should be read-only")
 	assert.NotEmpty(t, roles, "Read-only user should have roles (read, backup)")
@@ -264,7 +264,7 @@ func Test_CreateReadOnlyUser_UserCanReadButNotWrite(t *testing.T) {
 			mongodbModel := createMongodbModel(container)
 			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-			username, password, err := mongodbModel.CreateReadOnlyUser(ctx, logger, nil, uuid.New())
+			username, password, err := mongodbModel.CreateReadOnlyUser(ctx, logger, nil)
 			assert.NoError(t, err)
 			assert.NotEmpty(t, username)
 			assert.NotEmpty(t, password)
@@ -321,7 +321,7 @@ func Test_ReadOnlyUser_FutureCollections_CanSelect(t *testing.T) {
 	mongodbModel := createMongodbModel(container)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	username, password, err := mongodbModel.CreateReadOnlyUser(ctx, logger, nil, uuid.New())
+	username, password, err := mongodbModel.CreateReadOnlyUser(ctx, logger, nil)
 	assert.NoError(t, err)
 
 	_ = db.Collection("future_collection").Drop(ctx)
@@ -356,7 +356,7 @@ func Test_ReadOnlyUser_CannotDropOrModifyCollections(t *testing.T) {
 	mongodbModel := createMongodbModel(container)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	username, password, err := mongodbModel.CreateReadOnlyUser(ctx, logger, nil, uuid.New())
+	username, password, err := mongodbModel.CreateReadOnlyUser(ctx, logger, nil)
 	assert.NoError(t, err)
 
 	readOnlyClient := connectWithCredentials(t, container, username, password)
@@ -411,7 +411,7 @@ func Test_GetRawDbSizeMb_Mongodb_ReturnsPositiveSize(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	sizeMB, err := mongodbModel.GetRawDbSizeMb(t.Context(), logger, nil, uuid.New())
+	sizeMB, err := mongodbModel.GetRawDbSizeMb(t.Context(), logger, nil)
 	assert.NoError(t, err)
 	assert.Greater(t, sizeMB, 0.0, "raw db size should be > 0 after inserting documents")
 }
