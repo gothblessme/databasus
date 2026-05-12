@@ -52,6 +52,8 @@ type PostgresqlDatabase struct {
 
 	// restore settings (not saved to DB)
 	IsExcludeExtensions bool `json:"isExcludeExtensions" gorm:"-"`
+	IsRestoreOwnership  bool `json:"isRestoreOwnership"  gorm:"-"`
+	IsRestorePrivileges bool `json:"isRestorePrivileges" gorm:"-"`
 }
 
 func (p *PostgresqlDatabase) TableName() string {
